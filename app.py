@@ -2,12 +2,13 @@ from flask import Flask, render_template, request, send_file, flash, redirect, u
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import SimpleDocTemplate, Preformatted, Spacer
-from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.lib.enums import TA_LEFT, TA_JUSTIFY
 import io
 import os
-from xml.sax.saxutils import escape
+import html
+import re
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
@@ -16,6 +17,32 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 def index():
     """Page d'accueil avec le formulaire"""
     return render_template('index.html')
+
+def process_text_for_pdf(text):
+    """Traite le texte pour un meilleur rendu PDF en préservant les paragraphes"""
+    # Échapper les caractères HTML spéciaux pour éviter les erreurs de parsing
+    text = html.escape(text)
+    
+    # Diviser le texte en paragraphes (séparer par double saut de ligne ou simple)
+    paragraphs = re.split(r'\n\s*\n', text)
+    
+    processed_paragraphs = []
+    for para in paragraphs:
+        # Nettoyer le paragraphe et remplacer les sauts de ligne simples par des espaces
+        # sauf si c'est clairement une liste ou des éléments structurés
+        para = para.strip()
+        if para:
+            # Détecter si c'est une liste (commence par -, *, nombre, etc.)
+            lines = para.split('\n')
+            if any(re.match(r'^\s*[-*•]\s+', line) or re.match(r'^\s*\d+\.\s+', line) for line in lines):
+                # C'est une liste, préserver les sauts de ligne
+                para = para.replace('\n', '<br/>')
+            else:
+                # Texte normal, joindre les lignes avec des espaces
+                para = ' '.join(line.strip() for line in lines if line.strip())
+            processed_paragraphs.append(para)
+    
+    return processed_paragraphs
 
 @app.route('/generate_pdf', methods=['POST'])
 def generate_pdf():
@@ -30,24 +57,40 @@ def generate_pdf():
         # Créer un buffer en mémoire pour le PDF
         buffer = io.BytesIO()
         
-        # Créer le PDF avec reportlab
+        # Créer le PDF avec reportlab - marges améliorées
         doc = SimpleDocTemplate(buffer, pagesize=letter,
                               rightMargin=72, leftMargin=72,
-                              topMargin=72, bottomMargin=18)
+                              topMargin=72, bottomMargin=72)
         
-        # Styles pour le texte
+        # Styles pour le texte améliorés
         styles = getSampleStyleSheet()
+        
+        # Créer un style personnalisé pour un meilleur rendu
+        custom_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=11,
+            leading=14,  # Interligne
+            spaceAfter=12,
+            alignment=TA_LEFT,
+            allowWidows=1,  # Éviter les lignes orphelines
+            allowOrphans=1,
+        )
+        
         story = []
         
-        # Diviser le texte en paragraphes
-        paragraphs = text.split('\n')
+        # Traiter le texte pour préserver la structure
+        processed_paragraphs = process_text_for_pdf(text)
         
-        for paragraph_text in paragraphs:
+        for i, paragraph_text in enumerate(processed_paragraphs):
             if paragraph_text.strip():
-                # Utiliser Preformatted pour éviter les problèmes avec les caractères spéciaux
-                para = Preformatted(paragraph_text.strip(), styles['Normal'])
+                # Utiliser Paragraph au lieu de Preformatted pour un meilleur rendu
+                para = Paragraph(paragraph_text, custom_style)
                 story.append(para)
-                story.append(Spacer(1, 12))
+                
+                # Espacement entre les paragraphes (sauf pour le dernier)
+                if i < len(processed_paragraphs) - 1:
+                    story.append(Spacer(1, 6))
         
         # Construire le PDF
         doc.build(story)
