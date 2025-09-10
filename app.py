@@ -109,6 +109,8 @@ def generate_pdf():
         return redirect(url_for('index'))
 
 if __name__ == '__main__':
-    # Utiliser debug=False en production pour la sécurité
+    # Configuration flexible pour développement et déploiement
+    # Replit utilise le port 5000, Render utilise la variable PORT (défaut 10000)
+    port = int(os.environ.get('PORT', 5000))
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
-    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)
