@@ -107,6 +107,29 @@
             color: #999;
             font-style: italic;
         }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 15px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            font-weight: 500;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .btn-secondary:active {
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -133,8 +156,65 @@
                     required></textarea>
             </div>
             
+            <button type="button" class="btn-secondary" onclick="organizeText(this)">📝 Organiser le texte</button>
             <button type="submit" class="btn">Générer PDF</button>
         </form>
     </div>
+    <script>
+        function organizeText(button) {
+            const textarea = document.getElementById('text');
+            let text = textarea.value;
+            
+            if (!text.trim()) {
+                alert('Veuillez d\'abord saisir du texte avant de l\'organiser.');
+                return;
+            }
+            
+            // Organiser et nettoyer le texte
+            text = cleanAndOrganizeText(text);
+            
+            // Mettre à jour le textarea
+            textarea.value = text;
+            
+            // Animation visuelle pour indiquer que l'organisation est terminée
+            const originalText = button.innerHTML;
+            button.innerHTML = '✅ Texte organisé !';
+            button.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+            
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+            }, 2000);
+        }
+        
+        function cleanAndOrganizeText(text) {
+            // 1. Nettoyer les espaces multiples sans toucher aux sauts de ligne
+            text = text.replace(/[^\S\r\n]{2,}/g, ' ');
+            
+            // 2. Normaliser les lignes vides multiples (garder au maximum une ligne vide)
+            text = text.replace(/\r?\n{3,}/g, '\n\n');
+            
+            // 3. Supprimer les espaces en début et fin de ligne en préservant la structure
+            text = text.split(/\r?\n/).map(line => line.trim()).join('\n');
+            
+            // 4. Capitaliser le début des phrases
+            text = text.replace(/(^|[.!?]\s+)([a-z])/g, function(match, start, letter) {
+                return start + letter.toUpperCase();
+            });
+            
+            // 5. Corriger la ponctuation (espaces avant/après)
+            text = text.replace(/\s*([.!?,:;])\s*/g, '$1 ');
+            text = text.replace(/\s+([.!?])/g, '$1');
+            
+            // 6. Organiser les listes (ajouter des espaces uniformes)
+            text = text.replace(/^\s*([-*•])\s*/gm, '$1 ');
+            text = text.replace(/^\s*(\d+)\s*[.)]/gm, '$1. ');
+            
+            // 7. Nettoyer les espaces en début et fin du texte complet
+            text = text.trim();
+            
+            return text;
+        }
+    </script>
 </body>
 </html>
